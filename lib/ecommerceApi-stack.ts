@@ -5,7 +5,8 @@ import * as cwlogs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 
 interface ECommerceApiStackProps extends cdk.StackProps {
-    productsFetchHandler: lambdaNodeJS.NodejsFunction
+    productsFetchHandler: lambdaNodeJS.NodejsFunction,
+    productsAdminHandler: lambdaNodeJS.NodejsFunction
 }
 
 // Stack para criação de API Gateway e integrar
@@ -34,10 +35,31 @@ export class ECommerceApiStack extends cdk.Stack {
             }
         });
 
+        // Integração do API Gateway com o Lambda "productsFetchIntegration"
         const productsFetchIntegration = new apigateway.LambdaIntegration(props.productsFetchHandler);
+        // Integração do API Gateway com o Lambda "productsAdminHandler"
+        const productsAdminIntegration = new apigateway.LambdaIntegration(props.productsAdminHandler);
 
-        // "/products"
+        // Add o endpoint "/products" no API Gateway
         const productsResource = api.root.addResource("products");
+        // Add o endpoint "/products/{id}" no API Gateway
+        const productIdResource = productsResource.addResource("{id}");
+        
+        // Adiciona ao endpoint "/products" o método GET
+        // e a integração do "productsFetchIntegration"
         productsResource.addMethod("GET", productsFetchIntegration);
+        // Adiciona ao endpoint "/products/{id}" o método GET
+        // e a integração do "productsFetchIntegration"
+        productIdResource.addMethod("GET", productsFetchIntegration);
+
+        // Adiciona ao endpoint "/products" o método POST
+        // e a integração do "productsAdminIntegration"
+        productsResource.addMethod("POST", productsAdminIntegration);
+        // Adiciona ao endpoint "/products/{id}" o método PUT
+        // e a integração do "productsAdminIntegration"
+        productIdResource.addMethod("PUT", productsAdminIntegration);
+        // Adiciona ao endpoint "/products/{id}" o método DELETE
+        // e a integração do "productsAdminIntegration"
+        productIdResource.addMethod("DELETE", productsAdminIntegration);
     }
 }
