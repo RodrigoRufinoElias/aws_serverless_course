@@ -88,6 +88,6 @@ export class ProductsAppStack extends cdk.Stack {
 
         // Dar ao "productsAdminHandler" permissão de escrita 
         // na tabela "products".
-        this.productsDdb.grantReadData(this.productsAdminHandler);
+        this.productsDdb.grantWriteData(this.productsAdminHandler);
     }
 }
