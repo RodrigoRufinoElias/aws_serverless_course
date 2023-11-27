@@ -28,4 +28,70 @@ export class ProductRepository {
 
         return data.Items as Product[];
     }
+
+    async getProductById(productId: string): Promise<Product> {
+        const data = await this.ddbClient.get({
+            TableName: this.productDdb,
+            Key: {
+                id: productId
+            }
+        }).promise();
+
+        if (data.Item) {
+            return data.Item as Product;
+        } else {
+            throw new Error("Product not found");
+        }
+    }
+
+    async createProduct(product: Product): Promise<Product> {
+        product.id = uuid();
+
+        await this.ddbClient.put({
+            TableName: this.productDdb,
+            Item: product
+        }).promise();
+
+        return product;
+    }
+
+    async deleteProduct(productId: string): Promise<Product> {
+        const data = await this.ddbClient.delete({
+            TableName: this.productDdb,
+            Key: {
+                id: productId
+            },
+            // Para retornar tbm os valores anteriores ao delete.
+            ReturnValues: "ALL_OLD"
+        }).promise();
+
+        // Verifica se os valores anteriores existem.
+        if (data.Attributes) {
+            return data.Attributes as Product;
+        } else {
+            throw new Error("Product not found");
+        }
+    }
+
+    async updateProduct(productId: string, product: Product): Promise<Product> {
+        const data = await this.ddbClient.update({
+            TableName: this.productDdb,
+            Key: {
+                id: productId
+            },
+            ConditionExpression: "attribute_exists(id)",
+            ReturnValues: "UPDATED_NEW",
+            UpdateExpression: "set productName = :n, code = :c, price = :p, model = :m",
+            ExpressionAttributeValues: {
+                ":n": product.productName,
+                ":c": product.code,
+                ":p": product.price,
+                ":m": product.model,
+            }
+        }).promise();
+
+        data.Attributes!.id = productId;
+
+        return data.Attributes as Product;
+    }
 }
