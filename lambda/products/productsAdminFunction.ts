@@ -1,4 +1,14 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
+import { Product, ProductRepository } from "/opt/nodejs/productsLayer";
+import { DynamoDB } from "aws-sdk";
+
+// Recupera nome da tabela através do env
+const productsDdb = process.env.PRODUCTS_DDB!;
+// Inicia client do DB
+const ddbClient = new DynamoDB.DocumentClient();
+
+// Inicia Product Repository
+const productRepository = new ProductRepository(ddbClient, productsDdb);
 
 // Lambda function responsável pela administração de produtos
 export async function handler(
@@ -13,33 +23,52 @@ export async function handler(
 
     if (event.resource === "/products") {
         console.log("Método POST chamado");
+
+        const product = JSON.parse(event.body!) as Product;
+        const productCreated = await productRepository.createProduct(product);
         
         return {
             statusCode: 201,
-            body: JSON.stringify({
-                message: "POST Products - OK"
-            })
+            body: JSON.stringify(productCreated)
         }
     } else if (event.resource === "/products/{id}") {
-        const productId = event.pathParameters!.id;
+        const productId = event.pathParameters!.id as string;
 
         if (method === "PUT") {
             console.log(`Método PUT /products/${productId}`);
             
-            return {
-                statusCode: 200,
-                body: JSON.stringify({
-                    message: `Método PUT /products/${productId} - OK`
-                })
+            const product = JSON.parse(event.body!) as Product;
+
+            try {
+                const productUpdated = await productRepository.updateProduct(productId, product);
+                
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify(productUpdated)
+                }
+            } catch (ConditionalCheckFailedException) {
+                return {
+                    statusCode: 404,
+                    body: "Product not found"
+                }
             }
         } else if (method === "DELETE") {
             console.log(`Método DELETE /products/${productId}`);
             
-            return {
-                statusCode: 200,
-                body: JSON.stringify({
-                    message: `Método DELETE /products/${productId} - OK`
-                })
+            try {
+                const product = await productRepository.deleteProduct(productId);
+                
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify(product)
+                }
+            } catch (error) {
+                console.error((<Error>error).message);
+                
+                return {
+                    statusCode: 404,
+                    body: (<Error>error).message
+                }
             }
         }
     }
