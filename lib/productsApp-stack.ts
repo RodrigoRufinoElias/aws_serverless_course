@@ -57,6 +57,8 @@ export class ProductsAppStack extends cdk.Stack {
                 layers: [productsLayer],
                 // Habilita o log Tracing das funções lambda pelo XRay.
                 tracing:lambda.Tracing.ACTIVE,
+                // Habilita o Lambda Insight
+                insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0
             });
 
         // Dar ao "productsFetchHandler" permissão de leitura 
@@ -87,7 +89,9 @@ export class ProductsAppStack extends cdk.Stack {
                 },
                 layers: [productsLayer],
                 // Habilita o log Tracing das funções lambda pelo XRay.
-                tracing:lambda.Tracing.ACTIVE
+                tracing:lambda.Tracing.ACTIVE,
+                // Habilita o Lambda Insight
+                insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0
             });
 
         // Dar ao "productsAdminHandler" permissão de escrita 
