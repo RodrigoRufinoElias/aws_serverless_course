@@ -1,6 +1,10 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import { Product, ProductRepository } from "/opt/nodejs/productsLayer";
 import { DynamoDB } from "aws-sdk";
+import * as AWSXRay from "aws-xray-sdk";
+
+// Usa o XRay para capturar o tempo de execução de tudo oq consome o "aws-sdk"
+AWSXRay.captureAWS(require("aws-sdk"));
 
 // Recupera nome da tabela através do env
 const productsDdb = process.env.PRODUCTS_DDB!;

@@ -54,7 +54,9 @@ export class ProductsAppStack extends cdk.Stack {
                 environment: {
                     PRODUCTS_DDB: this.productsDdb.tableName
                 },
-                layers: [productsLayer]
+                layers: [productsLayer],
+                // Habilita o log Tracing das funções lambda pelo XRay.
+                tracing:lambda.Tracing.ACTIVE,
             });
 
         // Dar ao "productsFetchHandler" permissão de leitura 
@@ -83,7 +85,9 @@ export class ProductsAppStack extends cdk.Stack {
                 environment: {
                     PRODUCTS_DDB: this.productsDdb.tableName
                 },
-                layers: [productsLayer]
+                layers: [productsLayer],
+                // Habilita o log Tracing das funções lambda pelo XRay.
+                tracing:lambda.Tracing.ACTIVE
             });
 
         // Dar ao "productsAdminHandler" permissão de escrita 
