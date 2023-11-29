@@ -1,15 +1,20 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import { Product, ProductRepository } from "/opt/nodejs/productsLayer";
-import { DynamoDB } from "aws-sdk";
+import { DynamoDB, Lambda } from "aws-sdk";
 import * as AWSXRay from "aws-xray-sdk";
+import { ProductEvent, ProductEventType } from "/opt/nodejs/productEventsLayer";
 
 // Usa o XRay para capturar o tempo de execução de tudo oq consome o "aws-sdk"
 AWSXRay.captureAWS(require("aws-sdk"));
 
-// Recupera nome da tabela através do env
+// Recupera nomes das tabelas através do env
 const productsDdb = process.env.PRODUCTS_DDB!;
+const productEventsFunctionName = process.env.PRODUCT_EVENTS_FUNCTION_NAME!;
+
 // Inicia client do DB
 const ddbClient = new DynamoDB.DocumentClient();
+// Inicia client do Lambda
+const lambdaClient = new Lambda();
 
 // Inicia Product Repository
 const productRepository = new ProductRepository(ddbClient, productsDdb);
@@ -30,6 +35,15 @@ export async function handler(
 
         const product = JSON.parse(event.body!) as Product;
         const productCreated = await productRepository.createProduct(product);
+
+        const response = await sendProductEvent(
+            productCreated,
+            ProductEventType.CREATED,
+            "teste.create.email@teste.com.br",
+            lambdaRequestId
+        );
+
+        console.log(response);
         
         return {
             statusCode: 201,
@@ -46,6 +60,15 @@ export async function handler(
             try {
                 const productUpdated = await productRepository.updateProduct(productId, product);
                 
+                const response = await sendProductEvent(
+                    productUpdated,
+                    ProductEventType.UPDATED,
+                    "teste.update.email@teste.com.br",
+                    lambdaRequestId
+                );
+
+                console.log(response);
+
                 return {
                     statusCode: 200,
                     body: JSON.stringify(productUpdated)
@@ -61,6 +84,15 @@ export async function handler(
             
             try {
                 const product = await productRepository.deleteProduct(productId);
+
+                const response = await sendProductEvent(
+                    product,
+                    ProductEventType.DELETED,
+                    "teste.delete.email@teste.com.br",
+                    lambdaRequestId
+                );
+
+                console.log(response);
                 
                 return {
                     statusCode: 200,
@@ -83,4 +115,26 @@ export async function handler(
             message: "Bad request"
         })
     }
+}
+
+// Funcção responsável por invocar a função Lambda de Eventos
+function sendProductEvent(
+    product: Product, eventType: ProductEventType,
+    email: string, lambdaRequestId: string) {
+
+    const event: ProductEvent = {
+        email: email,
+        eventType: eventType,
+        productCode: product.code,
+        productId: product.id,
+        productPrice: product.price,
+        requestId: lambdaRequestId
+    }
+
+    return lambdaClient.invoke({
+        FunctionName: productEventsFunctionName,
+        Payload: JSON.stringify(event),
+        // Explicita que o tipo de chamada é SÍNCRONA
+        InvocationType: "RequestResponse"        
+    }).promise();
 }
