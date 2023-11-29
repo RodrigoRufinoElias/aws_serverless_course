@@ -9,12 +9,10 @@ import { Construct } from "constructs";
 // LAYERS Lambda são lambdas com funcionalidades comuns
 // entre lambdas functions. 
 export class ProductAppLayersStack extends cdk.Stack {
-    readonly productsLayers: lambda.LayerVersion;
-
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
-        this.productsLayers = new lambda.LayerVersion(this, "ProductLayer", {
+        const productsLayers = new lambda.LayerVersion(this, "ProductLayer", {
             code: lambda.Code.fromAsset('lambda/products/layers/productsLayer'),
             compatibleRuntimes: [lambda.Runtime.NODEJS_16_X],
             layerVersionName: "ProductsLayer",
@@ -24,7 +22,20 @@ export class ProductAppLayersStack extends cdk.Stack {
         // Guarda o "ProductsLayerVersionArn" no SSM
         new ssm.StringParameter(this, "ProductsLayerVersionArn", {
             parameterName: "ProductsLayerVersionArn",
-            stringValue: this.productsLayers.layerVersionArn
+            stringValue: productsLayers.layerVersionArn
+        });
+
+        const productEventsLayers = new lambda.LayerVersion(this, "ProductEventsLayer", {
+            code: lambda.Code.fromAsset('lambda/products/layers/productEventsLayer'),
+            compatibleRuntimes: [lambda.Runtime.NODEJS_16_X],
+            layerVersionName: "ProductEventsLayer",
+            removalPolicy: cdk.RemovalPolicy.RETAIN
+        });
+
+        // Guarda o "ProductEventsLayerVersionArn" no SSM
+        new ssm.StringParameter(this, "ProductEventsLayerVersionArn", {
+            parameterName: "ProductEventsLayerVersionArn",
+            stringValue: productEventsLayers.layerVersionArn
         });
     }
 }
