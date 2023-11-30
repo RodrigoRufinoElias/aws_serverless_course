@@ -134,7 +134,8 @@ function sendProductEvent(
     return lambdaClient.invoke({
         FunctionName: productEventsFunctionName,
         Payload: JSON.stringify(event),
-        // Explicita que o tipo de chamada é SÍNCRONA
+        // Explicita que o tipo de chamada é SÍNCRONA.
+        // Caso queira ASSÍNCRONA, use "Event". Mas não tem retorno.
         InvocationType: "RequestResponse"        
     }).promise();
 }
