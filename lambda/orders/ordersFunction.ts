@@ -1,0 +1,92 @@
+import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
+import { Order, OrderRepository } from "/opt/nodejs/ordersLayer";
+import { Product, ProductRepository } from "/opt/nodejs/productsLayer";
+import { DynamoDB } from "aws-sdk";
+import * as AWSXRay from "aws-xray-sdk";
+import { OrderProductResponse, OrderRequest } from "./layers/orderApiLayer/nodejs/orderApi";
+
+// Usa o XRay para capturar o tempo de execução de tudo oq consome o "aws-sdk"
+AWSXRay.captureAWS(require("aws-sdk"));
+
+// Recupera nome das tabela através do env
+const ordersDdb = process.env.ORDERS_DDB!;
+const productsDdb = process.env.PRODUCTS_DDB!;
+
+// Inicia client do DB
+const ddbClient = new DynamoDB.DocumentClient();
+
+// Inicia Order Repository
+const orderRepository = new OrderRepository(ddbClient, ordersDdb);
+
+// Inicia Product Repository
+const productRepository = new ProductRepository(ddbClient, productsDdb);
+
+// Lambda function responsável pela gestão de pedidos
+export async function handler(
+    event: APIGatewayProxyEvent, 
+    context: Context) : Promise<APIGatewayProxyResult> {
+    
+    const lambdaRequestId = context.awsRequestId;
+    const apiRequestId = event.requestContext.requestId;
+    const method = event.httpMethod;
+
+    console.log(`API Gateway RequestId: ${apiRequestId} - Lambda RequestId: ${lambdaRequestId}`);
+
+    // Não precisa verificar o resource pois sempre será chamado por "/orders"
+    if(method === "GET") {
+        console.log("GET /orders chamado");
+        const email =  event.queryStringParameters!.email;
+        const orderId =  event.queryStringParameters!.orderId;
+
+        if (email) {
+            if (orderId) {
+
+            } else {
+
+            }
+        }
+
+    } else if(method === "POST") {
+        console.log("POST /orders chamado");
+    } else if(method === "DELETE") {
+        console.log("DELETE /orders chamado");
+        const email =  event.queryStringParameters!.email;
+        const orderId =  event.queryStringParameters!.orderId;
+    }
+
+    return {
+        statusCode: 400,
+        body: JSON.stringify({
+            message: "Bad request"
+        })
+    }
+}
+
+function buildOrder(orderRequest: OrderRequest, products: Product[]): Order {
+    const orderProducts: OrderProductResponse[] = [];
+
+    let totalPrice = 0;
+
+    products.forEach((product) => {
+        totalPrice += product.price;
+        orderProducts.push({
+            code: product.code,
+            price: product.price
+        })
+    })
+
+    const order: Order = {
+        pk: orderRequest.email,
+        billing: {
+            payment: orderRequest.payment,
+            totalPrice: totalPrice
+        },
+        shipping: {
+            type: orderRequest.shipping.type,
+            carrier: orderRequest.shipping.carrier
+        },
+        products: orderProducts
+    }
+
+    return order;
+}
