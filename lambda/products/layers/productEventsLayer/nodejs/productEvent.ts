@@ -9,7 +9,7 @@ export interface ProductEvent {
     eventType: ProductEventType;
     productId: string;
     productCode: string;
-    productPrice: string;
+    productPrice: number;
     email: string;
 }
 

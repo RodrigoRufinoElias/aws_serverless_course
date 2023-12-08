@@ -6,7 +6,7 @@ export interface Product {
     id: string;
     productName: string;
     code: string;
-    price: string;
+    price: number;
     model: string;
     productUrl: string;
 }
@@ -43,6 +43,26 @@ export class ProductRepository {
         } else {
             throw new Error("Product not found");
         }
+    }
+
+    async getProductByIds(productIds: string[]): Promise<Product[]> {
+        const keys: { id: string }[] = [];
+
+        productIds.forEach(productId => {
+            keys.push({
+                id: productId
+            });
+        });
+
+        const data = await this.ddbClient.batchGet({
+            RequestItems: {
+                [this.productDdb]: {
+                    Keys: keys
+                }
+            }
+        }).promise();
+
+        return data.Responses![this.productDdb] as Product[];
     }
 
     async createProduct(product: Product): Promise<Product> {
