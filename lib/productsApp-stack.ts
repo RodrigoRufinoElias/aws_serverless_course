@@ -45,14 +45,11 @@ export class ProductsAppStack extends cdk.Stack {
         // Não precisa ser acessado em outra classe. Por isso é CONST.
         const productEventsHandler = new lambdaNodeJS.NodejsFunction(this,
             "ProductsEventsFunction", {
-                // parâmetro RUNTIME é necessário para utilizar
-                // o nodeJS v16 com o AWS SDK v2. Caso não use,
-                // irá utilizar o nodeJS mais atual com AWS SDK v3.
-                runtime: lambda.Runtime.NODEJS_16_X,
+                runtime: lambda.Runtime.NODEJS_20_X,
                 functionName: "ProductsEventsFunction",
                 entry: "lambda/products/productEventsFunction.ts",
                 handler: "handler",
-                memorySize: 128,
+                memorySize: 512,
                 timeout: cdk.Duration.seconds(2),
                 bundling: {
                     minify: true,
@@ -78,14 +75,11 @@ export class ProductsAppStack extends cdk.Stack {
         // Lambda para PRODUCTS FETCH (GET)
         this.productsFetchHandler = new lambdaNodeJS.NodejsFunction(this,
             "ProductsFetchFunction", {
-                // parâmetro RUNTIME é necessário para utilizar
-                // o nodeJS v16 com o AWS SDK v2. Caso não use,
-                // irá utilizar o nodeJS mais atual com AWS SDK v3.
-                runtime: lambda.Runtime.NODEJS_16_X,
+                runtime: lambda.Runtime.NODEJS_20_X,
                 functionName: "ProductsFetchFunction",
                 entry: "lambda/products/productsFetchFunction.ts",
                 handler: "handler",
-                memorySize: 128,
+                memorySize: 512,
                 timeout: cdk.Duration.seconds(5),
                 bundling: {
                     minify: true,
@@ -113,14 +107,11 @@ export class ProductsAppStack extends cdk.Stack {
         // consumo e as permissões.
         this.productsAdminHandler = new lambdaNodeJS.NodejsFunction(this,
             "ProductsAdminFunction", {
-                // parâmetro RUNTIME é necessário para utilizar
-                // o nodeJS v16 com o AWS SDK v2. Caso não use,
-                // irá utilizar o nodeJS mais atual com AWS SDK v3.
-                runtime: lambda.Runtime.NODEJS_16_X,
+                runtime: lambda.Runtime.NODEJS_20_X,
                 functionName: "ProductsAdminFunction",
                 entry: "lambda/products/productsAdminFunction.ts",
                 handler: "handler",
-                memorySize: 128,
+                memorySize: 512,
                 timeout: cdk.Duration.seconds(5),
                 bundling: {
                     minify: true,

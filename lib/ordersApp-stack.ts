@@ -51,14 +51,11 @@ export class OrdersAppStack extends cdk.Stack {
         // Lambda para ORDERS
         this.ordersHandler = new lambdaNodeJS.NodejsFunction(this,
             "OrdersFunction", {
-                // parâmetro RUNTIME é necessário para utilizar
-                // o nodeJS v16 com o AWS SDK v2. Caso não use,
-                // irá utilizar o nodeJS mais atual com AWS SDK v3.
-                runtime: lambda.Runtime.NODEJS_16_X,
+                runtime: lambda.Runtime.NODEJS_20_X,
                 functionName: "OrdersFunction",
                 entry: "lambda/orders/ordersFunction.ts",
                 handler: "handler",
-                memorySize: 128,
+                memorySize: 512,
                 timeout: cdk.Duration.seconds(2),
                 bundling: {
                     minify: true,

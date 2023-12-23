@@ -13,7 +13,7 @@ export class OrdersAppLayersStack extends cdk.Stack {
 
         const ordersLayers = new lambda.LayerVersion(this, "OrdersLayer", {
             code: lambda.Code.fromAsset('lambda/orders/layers/ordersLayer'),
-            compatibleRuntimes: [lambda.Runtime.NODEJS_16_X],
+            compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
             layerVersionName: "OrdersLayer",
             removalPolicy: cdk.RemovalPolicy.RETAIN
         });
@@ -26,7 +26,7 @@ export class OrdersAppLayersStack extends cdk.Stack {
 
         const ordersApiLayers = new lambda.LayerVersion(this, "OrdersApiLayer", {
             code: lambda.Code.fromAsset('lambda/orders/layers/ordersApiLayer'),
-            compatibleRuntimes: [lambda.Runtime.NODEJS_16_X],
+            compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
             layerVersionName: "OrdersApiLayer",
             removalPolicy: cdk.RemovalPolicy.RETAIN
         });
