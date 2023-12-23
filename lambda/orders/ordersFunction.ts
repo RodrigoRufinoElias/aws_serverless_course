@@ -14,7 +14,7 @@ import {
   OrderResponse,
   PaymentType,
   ShippingType,
-} from "./layers/orderApiLayer/nodejs/orderApi";
+} from "./layers/ordersApiLayer/nodejs/orderApi";
 
 // Usa o XRay para capturar o tempo de execução de tudo oq consome o "aws-sdk"
 AWSXRay.captureAWS(require("aws-sdk"));
