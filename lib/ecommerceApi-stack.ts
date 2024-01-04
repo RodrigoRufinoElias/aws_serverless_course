@@ -98,8 +98,51 @@ export class ECommerceApiStack extends cdk.Stack {
             requestValidator: orderDeletionvalidator
         });
 
+        // Monta o Validator para o body do POST /orders
+        const orderRequestValidator = new apigateway.RequestValidator(this, "OrderRequestValidator", {
+            restApi: api,
+            requestValidatorName: "Order request validator",
+            validateRequestBody: true
+        });
+
+        // Modelo Order para validação
+        const orderModel = new apigateway.Model(this, "OrderModel", {
+            modelName: "OrderModel",
+            restApi: api,
+            schema: {
+                type: apigateway.JsonSchemaType.OBJECT,
+                properties: {
+                    email: {
+                        type: apigateway.JsonSchemaType.STRING
+                    },
+                    productIds: {
+                        type: apigateway.JsonSchemaType.ARRAY,
+                        minItems: 1,
+                        items: {
+                            type: apigateway.JsonSchemaType.STRING
+                        }
+                    },
+                    payment: {
+                        type: apigateway.JsonSchemaType.STRING,
+                        enum: ["CASH", "DEBIT_CARD", "CREDIT_CARD"]
+                    }
+                },
+                required: [
+                    "email",
+                    "productIds",
+                    "payment"
+                ]
+            }
+        });
+
+
         // Adiciona ao endpoint "/orders" o método POST
         // e a integração do "ordersIntegration"
-        ordersResource.addMethod("POST", ordersIntegration);
+        ordersResource.addMethod("POST", ordersIntegration, {
+            requestValidator: orderRequestValidator,
+            requestModels: {
+                "application/json": orderModel
+            }
+        });
     }
 }
