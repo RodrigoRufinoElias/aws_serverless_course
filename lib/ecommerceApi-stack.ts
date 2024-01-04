@@ -58,9 +58,54 @@ export class ECommerceApiStack extends cdk.Stack {
         // e a integração do "productsFetchIntegration"
         productIdResource.addMethod("GET", productsFetchIntegration);
 
+        // Monta o Validator para o body do /products
+        const productRequestValidator = new apigateway.RequestValidator(this, "ProductRequestValidator", {
+            restApi: api,
+            requestValidatorName: "Product request validator",
+            validateRequestBody: true
+        });
+
+        // Modelo Product para validação
+        const productModel = new apigateway.Model(this, "ProductModel", {
+            modelName: "ProductModel",
+            restApi: api,
+            schema: {
+                type: apigateway.JsonSchemaType.OBJECT,
+                properties: {
+                    productName: {
+                        type: apigateway.JsonSchemaType.STRING
+                    },
+                    code: {
+                        type: apigateway.JsonSchemaType.STRING
+                    },
+                    price: {
+                        type: apigateway.JsonSchemaType.INTEGER
+                    },
+                    model: {
+                        type: apigateway.JsonSchemaType.STRING
+                    },
+                    productUrl: {
+                        type: apigateway.JsonSchemaType.STRING
+                    },
+                },
+                required: [
+                    "productName",
+                    "code",
+                    "price",
+                    "model",
+                    "productUrl"
+                ]
+            }
+        });
+
         // Adiciona ao endpoint "/products" o método POST
         // e a integração do "productsAdminIntegration"
-        productsResource.addMethod("POST", productsAdminIntegration);
+        productsResource.addMethod("POST", productsAdminIntegration, {
+            requestValidator: productRequestValidator,
+            requestModels: {
+                "application/json": productModel
+            }
+        });
         // Adiciona ao endpoint "/products/{id}" o método PUT
         // e a integração do "productsAdminIntegration"
         productIdResource.addMethod("PUT", productsAdminIntegration);
