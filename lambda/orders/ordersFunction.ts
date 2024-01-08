@@ -16,6 +16,7 @@ import {
   ShippingType,
 } from "./layers/ordersApiLayer/nodejs/orderApi";
 import { OrderEvent, OrderEventType, Envelope } from "/opt/nodejs/orderEventsLayer";
+import { v4 as uuid } from "uuid";
 
 // Usa o XRay para capturar o tempo de execução de tudo oq consome o "aws-sdk"
 AWSXRay.captureAWS(require("aws-sdk"));
@@ -101,19 +102,22 @@ export async function handler(
 
     if (products.length === orderRequest.productIds.length) {
       const order = buildOrder(orderRequest, products);
-      const orderCreated = await orderRepository.createOrder(order);
 
-      const eventResult = await sendOrderEvent(orderCreated, OrderEventType.CREATED, lambdaRequestId);
+      const orderCreatedPromise = orderRepository.createOrder(order);
+
+      const eventResultPromise = sendOrderEvent(order, OrderEventType.CREATED, lambdaRequestId);
+
+      const result = await Promise.all([orderCreatedPromise, eventResultPromise])
 
       console.log(
         `Order event creation sent -
-        OrderId: ${orderCreated.sk} - 
-        MessageId: ${eventResult.MessageId}`
+        OrderId: ${order.sk} - 
+        MessageId: ${result[1].MessageId}`
       );
       
       return {
         statusCode: 201,
-        body: JSON.stringify(convertToOrderResponse(orderCreated)),
+        body: JSON.stringify(convertToOrderResponse(order)),
       };
     } else {
       return {
@@ -229,6 +233,8 @@ function buildOrder(orderRequest: OrderRequest, products: Product[]): Order {
 
   const order: Order = {
     pk: orderRequest.email,
+    sk: uuid(),
+    createdAt: Date.now(),
     billing: {
       payment: orderRequest.payment,
       totalPrice: totalPrice,
