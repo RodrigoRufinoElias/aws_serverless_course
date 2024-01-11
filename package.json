@@ -23,6 +23,8 @@
     "typescript": "~5.2.2"
   },
   "dependencies": {
+    "@aws-cdk/aws-apigatewayv2-alpha": "^2.109.0-alpha.0",
+    "@aws-cdk/aws-apigatewayv2-integrations-alpha": "^2.109.0-alpha.0",
     "aws-cdk-lib": "2.109.0",
     "aws-xray-sdk": "^3.5.3",
     "constructs": "^10.0.0",
