@@ -186,7 +186,14 @@ function sendOrderEvent(order: Order, eventType: OrderEventType, lambdaRequestId
   // Publicar tópico
   return snsClient.publish({
     TopicArn: orderEventsTopicArn,
-    Message: JSON.stringify(envelope)
+    Message: JSON.stringify(envelope),
+    // Insere o attr de msg para seu filtrado
+    MessageAttributes: {
+      eventType: {
+        DataType: "String",
+        StringValue: eventType
+      }
+    }
   }).promise();
 }
 

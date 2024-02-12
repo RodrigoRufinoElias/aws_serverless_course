@@ -149,5 +149,33 @@ export class OrdersAppStack extends cdk.Stack {
 
         // Inclusão da policy "eventsDdbPolicy" nas roles do "orderEventsHandler"
         orderEventsHandler.addToRolePolicy(eventsDdbPolicy);
+
+        // Lambda para BILLING
+        const billingHandler = new lambdaNodeJS.NodejsFunction(this,
+            "BillingFunction", {
+                runtime: lambda.Runtime.NODEJS_20_X,
+                functionName: "BillingFunction",
+                entry: "lambda/orders/billingFunction.ts",
+                handler: "handler",
+                memorySize: 512,
+                timeout: cdk.Duration.seconds(2),
+                bundling: {
+                    minify: true,
+                    sourceMap: false,
+                },
+                // Habilita o log Tracing das funções lambda pelo XRay.
+                tracing:lambda.Tracing.ACTIVE,
+                // Habilita o Lambda Insight
+                insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0
+            });
+
+        // Inscrição do "billingHandler" no tópico "ordersTopic"
+        ordersTopic.addSubscription(new subs.LambdaSubscription(billingHandler, {
+            filterPolicy: {
+                eventType: sns.SubscriptionFilter.stringFilter({
+                    allowlist: ['ORDER_CREATED']
+                })
+            }
+        }));
     }
 }
