@@ -237,6 +237,51 @@ export class OrdersAppStack extends cdk.Stack {
     });
 
     // Inscrição da fila "orderEventsQueue" no tópico "ordersTopic"
-    ordersTopic.addSubscription(new subs.SqsSubscription(orderEventsQueue));
+    ordersTopic.addSubscription(
+      new subs.SqsSubscription(orderEventsQueue, {
+        filterPolicy: {
+          eventType: sns.SubscriptionFilter.stringFilter({
+            allowlist: ["ORDER_CREATED"],
+          }),
+        },
+      })
+    );
+
+    // Lambda para envio de emails por SQS
+    const orderEmailsHandler = new lambdaNodeJS.NodejsFunction(
+      this,
+      "OrderEmailsFunction",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        functionName: "OrderEmailsFunction",
+        entry: "lambda/orders/orderEmailsFunction.ts",
+        handler: "handler",
+        memorySize: 512,
+        timeout: cdk.Duration.seconds(2),
+        bundling: {
+          minify: true,
+          sourceMap: false,
+        },
+        layers: [orderEventsLayer],
+        // Habilita o log Tracing das funções lambda pelo XRay.
+        tracing: lambda.Tracing.ACTIVE,
+        // Habilita o Lambda Insight
+        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
+      }
+    );
+
+    // Lambda "orderEmailsHandler" será acionado quando algum item entrar na fila "orderEventsQueue"
+    orderEmailsHandler.addEventSource(
+      new lambdaEventSource.SqsEventSource(orderEventsQueue, {
+        // Acumula 5 mensagens antes de chamar a lambda
+        batchSize: 5,
+        enabled: true,
+        // Ou caso demore 1 minuto desde a primeira mensagem
+        maxBatchingWindow: cdk.Duration.minutes(1),
+      })
+    );
+
+    // Dar ao "orderEmailsHandler" permissão para consumir mensagens do "orderEventsQueue"
+    orderEventsQueue.grantConsumeMessages(orderEmailsHandler);
   }
 }

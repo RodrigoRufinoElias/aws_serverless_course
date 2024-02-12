@@ -8,4 +8,6 @@ export async function handler(
   event.Records.forEach((record) => {
     console.log(record.Sns);
   });
+
+  return;
 }
