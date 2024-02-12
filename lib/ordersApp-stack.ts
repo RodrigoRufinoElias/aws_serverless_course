@@ -229,11 +229,23 @@ export class OrdersAppStack extends cdk.Stack {
       })
     );
 
-    // Fila SQS p/ "Order Events"
+    // Fila DLQ (Dead-letter Queue) responsável por reter itens da fila principal que tiveram algum problema
+    const orderEventsDlq = new sqs.Queue(this, "OrderEventsDlq", {
+      queueName: "order-events-dlq",
+      enforceSSL: false,
+      encryption: sqs.QueueEncryption.UNENCRYPTED,
+      retentionPeriod: cdk.Duration.days(4),
+    });
+
+    // Fila SQS p/ "Order Events" com DLQ
     const orderEventsQueue = new sqs.Queue(this, "OrderEventsQueue", {
       queueName: "order-events",
       enforceSSL: false,
       encryption: sqs.QueueEncryption.UNENCRYPTED,
+      deadLetterQueue: {
+        maxReceiveCount: 3,
+        queue: orderEventsDlq,
+      },
     });
 
     // Inscrição da fila "orderEventsQueue" no tópico "ordersTopic"
