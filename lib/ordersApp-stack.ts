@@ -295,5 +295,15 @@ export class OrdersAppStack extends cdk.Stack {
 
     // Dar ao "orderEmailsHandler" permissão para consumir mensagens do "orderEventsQueue"
     orderEventsQueue.grantConsumeMessages(orderEmailsHandler);
+
+    // Criação de policy para permitir a ação de envio de email pelo SES
+    const orderEmailSesPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["ses:SendEmail", "ses:SendRawEmail"],
+      resources: ["*"],
+    });
+
+    // Atribui a policy "orderEmailSesPolicy" ao "orderEmailsHandler"
+    orderEmailsHandler.addToRolePolicy(orderEmailSesPolicy);
   }
 }

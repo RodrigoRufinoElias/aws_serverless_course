@@ -1,19 +1,56 @@
-import { SQSEvent, Context } from "aws-lambda";
+import { SQSEvent, Context, SNSMessage } from "aws-lambda";
+import { AWSError, SES } from "aws-sdk";
 import * as AWSXRay from "aws-xray-sdk";
+import { Envelope, OrderEvent } from "/opt/nodejs/orderEventsLayer";
+import { PromiseResult } from "aws-sdk/lib/request";
 
 // Usa o XRay para capturar o tempo de execução de tudo oq consome o "aws-sdk"
 AWSXRay.captureAWS(require("aws-sdk"));
+
+// Client do SES
+const sesClient = new SES();
 
 // Lambda function responsável pela gestão de pedidos
 export async function handler(
   event: SQSEvent,
   context: Context
 ): Promise<void> {
+  const promises: Promise<PromiseResult<SES.SendEmailResponse, AWSError>>[] =
+    [];
+
   event.Records.forEach((record) => {
-    console.log(record);
-    const body = JSON.parse(record.body);
-    console.log(body);
+    const body = JSON.parse(record.body) as SNSMessage;
+    promises.push(sendOrderEmail(body));
   });
 
+  await Promise.all(promises);
+
   return;
+}
+
+function sendOrderEmail(body: SNSMessage) {
+  const envelope = JSON.parse(body.Message) as Envelope;
+  const event = JSON.parse(envelope.data) as OrderEvent;
+
+  return sesClient
+    .sendEmail({
+      Destination: {
+        ToAddresses: [event.email],
+      },
+      Message: {
+        Body: {
+          Text: {
+            Charset: "UTF-8",
+            Data: `Recebemos seu pedido de número ${event.orderId}, no valor de R$ ${event.billing.totalPrice}`,
+          },
+        },
+        Subject: {
+          Charset: "UTF-8",
+          Data: `Recebemos seu pedido!`,
+        },
+      },
+      Source: "rodrigo.rufino.elias@gmail.com",
+      ReplyToAddresses: ["rodrigo.rufino.elias@gmail.com"],
+    })
+    .promise();
 }
