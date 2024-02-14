@@ -15,7 +15,11 @@ import {
   PaymentType,
   ShippingType,
 } from "./layers/ordersApiLayer/nodejs/orderApi";
-import { OrderEvent, OrderEventType, Envelope } from "/opt/nodejs/orderEventsLayer";
+import {
+  OrderEvent,
+  OrderEventType,
+  Envelope,
+} from "/opt/nodejs/orderEventsLayer";
 import { v4 as uuid } from "uuid";
 
 // Usa o XRay para capturar o tempo de execução de tudo oq consome o "aws-sdk"
@@ -105,16 +109,23 @@ export async function handler(
 
       const orderCreatedPromise = orderRepository.createOrder(order);
 
-      const eventResultPromise = sendOrderEvent(order, OrderEventType.CREATED, lambdaRequestId);
+      const eventResultPromise = sendOrderEvent(
+        order,
+        OrderEventType.CREATED,
+        lambdaRequestId
+      );
 
-      const result = await Promise.all([orderCreatedPromise, eventResultPromise])
+      const result = await Promise.all([
+        orderCreatedPromise,
+        eventResultPromise,
+      ]);
 
       console.log(
         `Order event creation sent -
         OrderId: ${order.sk} - 
         MessageId: ${result[1].MessageId}`
       );
-      
+
       return {
         statusCode: 201,
         body: JSON.stringify(convertToOrderResponse(order)),
@@ -133,7 +144,11 @@ export async function handler(
     try {
       const orderDelete = await orderRepository.deleteOrder(email, orderId);
 
-      const eventResult = await sendOrderEvent(orderDelete, OrderEventType.DELETED, lambdaRequestId);
+      const eventResult = await sendOrderEvent(
+        orderDelete,
+        OrderEventType.DELETED,
+        lambdaRequestId
+      );
 
       console.log(
         `Order event delete sent -
@@ -162,39 +177,45 @@ export async function handler(
   };
 }
 
-function sendOrderEvent(order: Order, eventType: OrderEventType, lambdaRequestId: string) {
+function sendOrderEvent(
+  order: Order,
+  eventType: OrderEventType,
+  lambdaRequestId: string
+) {
   const productCodes: string[] = [];
 
   order.products.forEach((p) => {
     productCodes.push(p.code);
   });
-  
+
   const orderEvent: OrderEvent = {
     email: order.pk,
     orderId: order.sk!,
     billing: order.billing,
     shipping: order.shipping,
     requestId: lambdaRequestId,
-    productCodes
+    productCodes,
   };
 
   const envelope: Envelope = {
     eventType,
-    data: JSON.stringify(orderEvent)
+    data: JSON.stringify(orderEvent),
   };
-  
+
   // Publicar tópico
-  return snsClient.publish({
-    TopicArn: orderEventsTopicArn,
-    Message: JSON.stringify(envelope),
-    // Insere o attr de msg para seu filtrado
-    MessageAttributes: {
-      eventType: {
-        DataType: "String",
-        StringValue: eventType
-      }
-    }
-  }).promise();
+  return snsClient
+    .publish({
+      TopicArn: orderEventsTopicArn,
+      Message: JSON.stringify(envelope),
+      // Insere o attr de msg para seu filtrado
+      MessageAttributes: {
+        eventType: {
+          DataType: "String",
+          StringValue: eventType,
+        },
+      },
+    })
+    .promise();
 }
 
 function convertToOrderResponse(order: Order): OrderResponse {

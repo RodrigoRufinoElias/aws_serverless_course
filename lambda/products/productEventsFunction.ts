@@ -12,40 +12,49 @@ const eventsDdb = process.env.EVENTS_DDB!;
 // Inicia client do DB
 const ddbClient = new DynamoDB.DocumentClient();
 
-export async function handler(event: ProductEvent, context: Context, callback: Callback): Promise<void> {
-    // TODO - Remover depois
-    console.log(event);
+export async function handler(
+  event: ProductEvent,
+  context: Context,
+  callback: Callback
+): Promise<void> {
+  // TODO - Remover depois
+  console.log(event);
 
-    console.log(`Lambda requestId: ${context.awsRequestId}`);
+  console.log(`Lambda requestId: ${context.awsRequestId}`);
 
-    await createEvent(event);
+  await createEvent(event);
 
-    callback(null, JSON.stringify({
-        productEventCreated: true,
-        message: "OK"
-    }));
+  callback(
+    null,
+    JSON.stringify({
+      productEventCreated: true,
+      message: "OK",
+    })
+  );
 }
 
-function createEvent (event: ProductEvent) {
-    const timestamp = Date.now();
-    // Monta o Time to live usando o timestamp em segundos (timestamp / 1000)
-    // mais 5 minutos (5 * 60s). ~~ => Arredondar
-    const ttl = ~~(timestamp / 1000) + 5 * 60;
+function createEvent(event: ProductEvent) {
+  const timestamp = Date.now();
+  // Monta o Time to live usando o timestamp em segundos (timestamp / 1000)
+  // mais 5 minutos (5 * 60s). ~~ => Arredondar
+  const ttl = ~~(timestamp / 1000) + 5 * 60;
 
-    return ddbClient.put({
-        TableName: eventsDdb,
-        Item: {
-            pk: `#product_${event.productCode}`,
-            sk: `${event.eventType}#${timestamp}`,
-            email: event.email,
-            createdAt: timestamp,
-            requestId: event.requestId,
-            eventType: event.eventType,
-            info: {
-                productId: event.productId,
-                price: event.productPrice
-            },
-            ttl: ttl,
-        }
-    }).promise();
+  return ddbClient
+    .put({
+      TableName: eventsDdb,
+      Item: {
+        pk: `#product_${event.productCode}`,
+        sk: `${event.eventType}#${timestamp}`,
+        email: event.email,
+        createdAt: timestamp,
+        requestId: event.requestId,
+        eventType: event.eventType,
+        info: {
+          productId: event.productId,
+          price: event.productPrice,
+        },
+        ttl: ttl,
+      },
+    })
+    .promise();
 }

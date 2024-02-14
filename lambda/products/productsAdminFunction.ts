@@ -1,4 +1,8 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
+import {
+  APIGatewayProxyEvent,
+  APIGatewayProxyResult,
+  Context,
+} from "aws-lambda";
 import { Product, ProductRepository } from "/opt/nodejs/productsLayer";
 import { DynamoDB, Lambda } from "aws-sdk";
 import * as AWSXRay from "aws-xray-sdk";
@@ -21,121 +25,130 @@ const productRepository = new ProductRepository(ddbClient, productsDdb);
 
 // Lambda function responsável pela administração de produtos
 export async function handler(
-    event: APIGatewayProxyEvent, 
-    context: Context) : Promise<APIGatewayProxyResult> {
-    
-    const lambdaRequestId = context.awsRequestId;
-    const apiRequestId = event.requestContext.requestId;
-    const method = event.httpMethod;
+  event: APIGatewayProxyEvent,
+  context: Context
+): Promise<APIGatewayProxyResult> {
+  const lambdaRequestId = context.awsRequestId;
+  const apiRequestId = event.requestContext.requestId;
+  const method = event.httpMethod;
 
-    console.log(`API Gateway RequestId: ${apiRequestId} - Lambda RequestId: ${lambdaRequestId}`);
+  console.log(
+    `API Gateway RequestId: ${apiRequestId} - Lambda RequestId: ${lambdaRequestId}`
+  );
 
-    if (event.resource === "/products") {
-        console.log("Método POST chamado");
+  if (event.resource === "/products") {
+    console.log("Método POST chamado");
 
-        const product = JSON.parse(event.body!) as Product;
-        const productCreated = await productRepository.createProduct(product);
+    const product = JSON.parse(event.body!) as Product;
+    const productCreated = await productRepository.createProduct(product);
+
+    const response = await sendProductEvent(
+      productCreated,
+      ProductEventType.CREATED,
+      "teste.create.email@teste.com.br",
+      lambdaRequestId
+    );
+
+    console.log(response);
+
+    return {
+      statusCode: 201,
+      body: JSON.stringify(productCreated),
+    };
+  } else if (event.resource === "/products/{id}") {
+    const productId = event.pathParameters!.id as string;
+
+    if (method === "PUT") {
+      console.log(`Método PUT /products/${productId}`);
+
+      const product = JSON.parse(event.body!) as Product;
+
+      try {
+        const productUpdated = await productRepository.updateProduct(
+          productId,
+          product
+        );
 
         const response = await sendProductEvent(
-            productCreated,
-            ProductEventType.CREATED,
-            "teste.create.email@teste.com.br",
-            lambdaRequestId
+          productUpdated,
+          ProductEventType.UPDATED,
+          "teste.update.email@teste.com.br",
+          lambdaRequestId
         );
 
         console.log(response);
-        
+
         return {
-            statusCode: 201,
-            body: JSON.stringify(productCreated)
-        }
-    } else if (event.resource === "/products/{id}") {
-        const productId = event.pathParameters!.id as string;
+          statusCode: 200,
+          body: JSON.stringify(productUpdated),
+        };
+      } catch (ConditionalCheckFailedException) {
+        return {
+          statusCode: 404,
+          body: "Product not found",
+        };
+      }
+    } else if (method === "DELETE") {
+      console.log(`Método DELETE /products/${productId}`);
 
-        if (method === "PUT") {
-            console.log(`Método PUT /products/${productId}`);
-            
-            const product = JSON.parse(event.body!) as Product;
+      try {
+        const product = await productRepository.deleteProduct(productId);
 
-            try {
-                const productUpdated = await productRepository.updateProduct(productId, product);
-                
-                const response = await sendProductEvent(
-                    productUpdated,
-                    ProductEventType.UPDATED,
-                    "teste.update.email@teste.com.br",
-                    lambdaRequestId
-                );
+        const response = await sendProductEvent(
+          product,
+          ProductEventType.DELETED,
+          "teste.delete.email@teste.com.br",
+          lambdaRequestId
+        );
 
-                console.log(response);
+        console.log(response);
 
-                return {
-                    statusCode: 200,
-                    body: JSON.stringify(productUpdated)
-                }
-            } catch (ConditionalCheckFailedException) {
-                return {
-                    statusCode: 404,
-                    body: "Product not found"
-                }
-            }
-        } else if (method === "DELETE") {
-            console.log(`Método DELETE /products/${productId}`);
-            
-            try {
-                const product = await productRepository.deleteProduct(productId);
+        return {
+          statusCode: 200,
+          body: JSON.stringify(product),
+        };
+      } catch (error) {
+        console.error((<Error>error).message);
 
-                const response = await sendProductEvent(
-                    product,
-                    ProductEventType.DELETED,
-                    "teste.delete.email@teste.com.br",
-                    lambdaRequestId
-                );
-
-                console.log(response);
-                
-                return {
-                    statusCode: 200,
-                    body: JSON.stringify(product)
-                }
-            } catch (error) {
-                console.error((<Error>error).message);
-                
-                return {
-                    statusCode: 404,
-                    body: (<Error>error).message
-                }
-            }
-        }
+        return {
+          statusCode: 404,
+          body: (<Error>error).message,
+        };
+      }
     }
+  }
 
-    return {
-        statusCode: 400,
-        body: JSON.stringify({
-            message: "Bad request"
-        })
-    }
+  return {
+    statusCode: 400,
+    body: JSON.stringify({
+      message: "Bad request",
+    }),
+  };
 }
 
 // Funcção responsável por invocar a função Lambda de Eventos
 function sendProductEvent(
-    product: Product, eventType: ProductEventType,
-    email: string, lambdaRequestId: string) {
+  product: Product,
+  eventType: ProductEventType,
+  email: string,
+  lambdaRequestId: string
+) {
+  const event: ProductEvent = {
+    email: email,
+    eventType: eventType,
+    productCode: product.code,
+    productId: product.id,
+    productPrice: product.price,
+    requestId: lambdaRequestId,
+  };
 
-    const event: ProductEvent = {
-        email: email,
-        eventType: eventType,
-        productCode: product.code,
-        productId: product.id,
-        productPrice: product.price,
-        requestId: lambdaRequestId
-    }
-
-    return lambdaClient.invoke({
-        FunctionName: productEventsFunctionName,
-        Payload: JSON.stringify(event),
-        // Explicita que o tipo de chamada é SÍNCRONA.
-        // Caso queira ASSÍNCRONA, use "Event". Mas não tem retorno.
-        InvocationType: "RequestResponse"        
-    }).promise();
+  return lambdaClient
+    .invoke({
+      FunctionName: productEventsFunctionName,
+      Payload: JSON.stringify(event),
+      // Explicita que o tipo de chamada é SÍNCRONA.
+      // Caso queira ASSÍNCRONA, use "Event". Mas não tem retorno.
+      InvocationType: "RequestResponse",
+    })
+    .promise();
 }
