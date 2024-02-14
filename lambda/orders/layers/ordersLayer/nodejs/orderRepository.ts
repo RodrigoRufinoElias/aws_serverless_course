@@ -45,6 +45,8 @@ export class OrderRepository {
     const data = await this.ddbClient
       .scan({
         TableName: this.ordersDdb,
+        // Seleciona quais colunas quer obter da tabela
+        ProjectionExpression: "pk, sk, createdAt, shipping, billing",
       })
       .promise();
 
