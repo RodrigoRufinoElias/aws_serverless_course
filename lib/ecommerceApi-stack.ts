@@ -8,6 +8,7 @@ interface ECommerceApiStackProps extends cdk.StackProps {
   productsFetchHandler: lambdaNodeJS.NodejsFunction;
   productsAdminHandler: lambdaNodeJS.NodejsFunction;
   ordersHandler: lambdaNodeJS.NodejsFunction;
+  ordersEventsFetchHandler: lambdaNodeJS.NodejsFunction;
 }
 
 // Stack para criação de API Gateway e integrar
@@ -128,8 +129,16 @@ export class ECommerceApiStack extends cdk.Stack {
       props.ordersHandler
     );
 
+    // Integração do API Gateway com o Lambda "ordersEventsFetchHandler"
+    const ordersEventsIntegration = new apigateway.LambdaIntegration(
+      props.ordersEventsFetchHandler
+    );
+
     // Add o endpoint "/orders" no API Gateway
     const ordersResource = api.root.addResource("orders");
+
+    // Add o endpoint "/orders/events" no API Gateway
+    const ordersEventsResource = ordersResource.addResource("events");
 
     // Adiciona ao endpoint "/orders" o método GET
     // e a integração do "ordersIntegration"
@@ -201,6 +210,27 @@ export class ECommerceApiStack extends cdk.Stack {
       requestModels: {
         "application/json": orderModel,
       },
+    });
+
+    // Monta o Validator para as querystrings do Order Events Fetch
+    const orderEventsFetchValidator = new apigateway.RequestValidator(
+      this,
+      "OrderEventsFetchValidator",
+      {
+        restApi: api,
+        requestValidatorName: "OrderEventsFetchValidator",
+        validateRequestParameters: true,
+      }
+    );
+
+    // Adiciona ao endpoint "/orders/events" o método GET
+    // e a integração do "ordersEventsIntegration"
+    ordersEventsResource.addMethod("GET", ordersEventsIntegration, {
+      requestParameters: {
+        "method.request.querystring.email": true,
+        "method.request.querystring.eventType": false,
+      },
+      requestValidator: orderEventsFetchValidator,
     });
   }
 }

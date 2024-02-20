@@ -32,6 +32,20 @@ export class EventsDdbStack extends cdk.Stack {
       writeCapacity: 1,
     });
 
+    // Add GSI (Global Secondary Index) para gerar tabela indexada
+    this.table.addGlobalSecondaryIndex({
+      indexName: "emailIndex",
+      partitionKey: {
+        name: "email",
+        type: dynadb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: "sk",
+        type: dynadb.AttributeType.STRING,
+      },
+      projectionType: dynadb.ProjectionType.ALL,
+    });
+
     // Auto-scale de leitura
     const readScale = this.table.autoScaleReadCapacity({
       maxCapacity: 2,

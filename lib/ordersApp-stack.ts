@@ -19,6 +19,7 @@ interface OrdersAppStackProps extends cdk.StackProps {
 // e integrações com DB relacionadas à classe ORDER
 export class OrdersAppStack extends cdk.Stack {
   readonly ordersHandler: lambdaNodeJS.NodejsFunction;
+  readonly ordersEventsFetchHandler: lambdaNodeJS.NodejsFunction;
 
   constructor(scope: Construct, id: string, props: OrdersAppStackProps) {
     super(scope, id, props);
@@ -305,5 +306,40 @@ export class OrdersAppStack extends cdk.Stack {
 
     // Atribui a policy "orderEmailSesPolicy" ao "orderEmailsHandler"
     orderEmailsHandler.addToRolePolicy(orderEmailSesPolicy);
+
+    this.ordersEventsFetchHandler = new lambdaNodeJS.NodejsFunction(
+      this,
+      "OrderEventsFetchFunction",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        functionName: "OrderEventsFetchFunction",
+        entry: "lambda/orders/orderEventsFetchFunction.ts",
+        handler: "handler",
+        memorySize: 512,
+        timeout: cdk.Duration.seconds(2),
+        bundling: {
+          minify: true,
+          sourceMap: false,
+        },
+        environment: {
+          EVENTS_DDB: props.eventsDdb.tableName,
+        },
+        layers: [orderEventsRepositoryLayer],
+        // Habilita o log Tracing das funções lambda pelo XRay.
+        tracing: lambda.Tracing.ACTIVE,
+        // Habilita o Lambda Insight
+        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
+      }
+    );
+
+    // Cria policy para permitir o acesso à tabela GSI "emailIndex"
+    const eventsFetchDdbPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["dynamodb:Query"],
+      resources: [`${props.eventsDdb.tableArn}/index/emailIndex`],
+    });
+
+    // Atribui a policy "eventsFetchDdbPolicy" à lambda "ordersEventsFetchHandler"
+    this.ordersEventsFetchHandler.addToRolePolicy(eventsFetchDdbPolicy);
   }
 }
