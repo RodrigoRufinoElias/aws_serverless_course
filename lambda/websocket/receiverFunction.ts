@@ -24,9 +24,6 @@ export async function handler(
   event: APIGatewayProxyEvent,
   context: Context
 ): Promise<APIGatewayProxyResult> {
-  // TODO - to be removed
-  console.log(`Event: ${JSON.stringify(event)}`);
-
   const lambdaRequestId = context.awsRequestId;
   const connectionId = event.requestContext.connectionId!;
   const email = JSON.parse(event.body!).email as string;

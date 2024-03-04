@@ -45,9 +45,6 @@ export async function handler(
   event: APIGatewayProxyEvent,
   context: Context
 ): Promise<APIGatewayProxyResult> {
-  // TODO Remove
-  console.log(event);
-
   const lambdaRequestId = context.awsRequestId;
   const connectionId = event.requestContext.connectionId!;
 

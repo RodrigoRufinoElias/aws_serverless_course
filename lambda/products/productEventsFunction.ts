@@ -17,9 +17,6 @@ export async function handler(
   context: Context,
   callback: Callback
 ): Promise<void> {
-  // TODO - Remover depois
-  console.log(event);
-
   console.log(`Lambda requestId: ${context.awsRequestId}`);
 
   await createEvent(event);

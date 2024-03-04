@@ -15,9 +15,6 @@ export async function handler(
   event: SQSEvent,
   context: Context
 ): Promise<void> {
-  // TODO - to be removed
-  console.log(`Event: ${JSON.stringify(event)}`);
-
   const promises: Promise<void>[] = [];
 
   event.Records.forEach((record) => {

@@ -44,9 +44,6 @@ const eventBridgeClient = new EventBridge();
 
 // Lambda function responsável pela importação de invoices
 export async function handler(event: S3Event, context: Context): Promise<void> {
-  // TODO Remove
-  console.log(event);
-
   const promises: Promise<void>[] = [];
 
   event.Records.forEach((record) => {
