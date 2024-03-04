@@ -8,11 +8,13 @@ import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as lambdaEventSource from "aws-cdk-lib/aws-lambda-event-sources";
+import * as events from "aws-cdk-lib/aws-events";
 import { Construct } from "constructs";
 
 interface OrdersAppStackProps extends cdk.StackProps {
   productsDdb: dynadb.Table;
   eventsDdb: dynadb.Table;
+  auditBus: events.EventBus;
 }
 
 // Classe para gerenciar TODAS as funções lambda
@@ -127,6 +129,7 @@ export class OrdersAppStack extends cdk.Stack {
           PRODUCTS_DDB: props.productsDdb.tableName,
           ORDERS_DDB: ordersDdb.tableName,
           ORDER_EVENTS_TOPIC_ARN: ordersTopic.topicArn,
+          AUDIT_BUS_NAME: props.auditBus.eventBusName,
         },
         layers: [ordersLayer, productsLayer, ordersApiLayer, orderEventsLayer],
         // Habilita o log Tracing das funções lambda pelo XRay.
@@ -146,6 +149,10 @@ export class OrdersAppStack extends cdk.Stack {
     // Dar ao "ordersHandler" permissão para publicar
     // tópicos pelo "ordersTopic"
     ordersTopic.grantPublish(this.ordersHandler);
+
+    // Dar ao "ordersHandler" permissão para publicar
+    // eventos pelo Event Bridge "auditBus"
+    props.auditBus.grantPutEventsTo(this.ordersHandler);
 
     // Lambda para ORDER-EVENTS
     const orderEventsHandler = new lambdaNodeJS.NodejsFunction(

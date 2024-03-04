@@ -1,6 +1,6 @@
 import * as AWSXRay from "aws-xray-sdk";
 import { Context, S3Event, S3EventRecord } from "aws-lambda";
-import { DynamoDB, S3, ApiGatewayManagementApi } from "aws-sdk";
+import { DynamoDB, S3, ApiGatewayManagementApi, EventBridge } from "aws-sdk";
 import {
   InvoiceTransactionRepository,
   InvoiceTransactionStatus,
@@ -14,6 +14,7 @@ AWSXRay.captureAWS(require("aws-sdk"));
 // Recupera nome das tabela através do env
 const invoiceDdb = process.env.INVOICE_DDB!;
 const invoicesWsApiEndpoint = process.env.INVOICE_WSAPI_ENDPOINT!.substring(6);
+const auditBusName = process.env.AUDIT_BUS_NAME!;
 
 // Inicia client do DB
 const ddbClient = new DynamoDB.DocumentClient();
@@ -37,6 +38,9 @@ const invoiceWSService = new InvoiceWSService(apiGwManagementApi);
 
 // Inicia Invoice Repository
 const invoiceRepository = new InvoiceRepository(ddbClient, invoiceDdb);
+
+// Inicia o client do EventBridge
+const eventBridgeClient = new EventBridge();
 
 // Lambda function responsável pela importação de invoices
 export async function handler(event: S3Event, context: Context): Promise<void> {
@@ -137,6 +141,28 @@ async function processRecord(record: S3EventRecord): Promise<void> {
       sendStatusPromise,
     ]);
   } catch (error) {
+    // Publica evento no Event Bridge
+    const result = await eventBridgeClient
+      .putEvents({
+        Entries: [
+          {
+            Source: "app.invoice",
+            EventBusName: auditBusName,
+            DetailType: "invoice",
+            Time: new Date(),
+            Detail: JSON.stringify({
+              errorDetail: "FAIL_NO_INVOICE_NUMBER",
+              info: {
+                invoiceKey: key,
+              },
+            }),
+          },
+        ],
+      })
+      .promise();
+
+    console.log(result);
+
     console.log((<Error>error).message);
   }
 }

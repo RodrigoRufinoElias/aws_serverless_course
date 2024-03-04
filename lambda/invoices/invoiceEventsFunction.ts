@@ -1,6 +1,6 @@
 import * as AWSXRay from "aws-xray-sdk";
 import { Context, DynamoDBStreamEvent, AttributeValue } from "aws-lambda";
-import { DynamoDB, ApiGatewayManagementApi } from "aws-sdk";
+import { DynamoDB, ApiGatewayManagementApi, EventBridge } from "aws-sdk";
 import { InvoiceWSService } from "/opt/nodejs/invoiceWSConnection";
 
 // Usa o XRay para capturar o tempo de execução de tudo oq consome o "aws-sdk"
@@ -9,6 +9,7 @@ AWSXRay.captureAWS(require("aws-sdk"));
 // Recupera nome das tabela através do env
 const eventsDdb = process.env.EVENTS_DDB!;
 const invoicesWsApiEndpoint = process.env.INVOICE_WSAPI_ENDPOINT!.substring(6);
+const auditBusName = process.env.AUDIT_BUS_NAME!;
 
 // Inicia client do DB
 const ddbClient = new DynamoDB.DocumentClient();
@@ -20,6 +21,9 @@ const apiGwManagementApi = new ApiGatewayManagementApi({
 
 // Inicia Invoice WS Service
 const invoiceWSService = new InvoiceWSService(apiGwManagementApi);
+
+// Inicia o client do EventBridge
+const eventBridgeClient = new EventBridge();
 
 // Lambda function responsável pelos eventos da tabela invoices
 export async function handler(
@@ -96,11 +100,32 @@ async function processExpiredTransaction(invoiceTransactionImage: {
   } else {
     console.log(`Invoice import failed - Status: ${transactionStatus}`);
 
-    await invoiceWSService.sendInvoiceStatus(
+    // Publica evento no Event Bridge
+    const putEventPromise = eventBridgeClient
+      .putEvents({
+        Entries: [
+          {
+            Source: "app.invoice",
+            EventBusName: auditBusName,
+            DetailType: "invoice",
+            Time: new Date(),
+            Detail: JSON.stringify({
+              errorDetail: "TIMEOUT",
+              transactionId: transactionId,
+            }),
+          },
+        ],
+      })
+      .promise();
+
+    const sendStatusPromise = invoiceWSService.sendInvoiceStatus(
       transactionId,
       connectionId,
       "TIMEOUT"
     );
+
+    await Promise.all([putEventPromise, sendStatusPromise]);
+
     await invoiceWSService.disconnectClient(connectionId);
   }
 
