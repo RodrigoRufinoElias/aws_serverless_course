@@ -394,5 +394,24 @@ export class OrdersAppStack extends cdk.Stack {
     productNotFoundAlarm.addAlarmAction(
       new cw_actions.SnsAction(orderAlarmTopic)
     );
+
+    // Métrica para eventos de elevação no número de escrita (throttle) na tabela ORDER
+    const writeThrottleEventsMetric = ordersDdb.metric("WriteThrottleEvents", {
+      period: cdk.Duration.minutes(2),
+      statistic: "SampleCount",
+      unit: cw.Unit.COUNT,
+    });
+
+    // Alarme para métrica "writeThrottleEventsMetric"
+    writeThrottleEventsMetric.createAlarm(this, "WriteThrottleEventsAlarm", {
+      alarmName: "WriteThrottleEvents",
+      actionsEnabled: false,
+      evaluationPeriods: 1,
+      threshold: 25,
+      comparisonOperator:
+        cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      // Importante quando não houver dados inicialmente, pois o Cloudwatch entra num status indefinido.
+      treatMissingData: cw.TreatMissingData.NOT_BREACHING,
+    });
   }
 }
