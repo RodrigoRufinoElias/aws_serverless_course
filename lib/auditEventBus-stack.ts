@@ -141,18 +141,36 @@ export class AuditEventBusStack extends cdk.Stack {
 
     // Cloudwatch
     // Métrica para mensagens visíveis acumuladas
-    const nomberOfMessagesMetric =
+    const numberOfMessagesMetric =
       invoiceImportTimeoutQueue.metricApproximateNumberOfMessagesVisible({
         period: cdk.Duration.minutes(2),
         statistic: "Sum",
       });
 
-    // Alarme para métrica "nomberOfMessagesMetric"
-    nomberOfMessagesMetric.createAlarm(this, "InvoiceImportTimeoutAlarm", {
+    // Alarme para métrica "numberOfMessagesMetric"
+    numberOfMessagesMetric.createAlarm(this, "InvoiceImportTimeoutAlarm", {
       alarmName: "InvoiceImportTimeout",
       actionsEnabled: false,
       evaluationPeriods: 1,
       threshold: 5,
+      comparisonOperator:
+        cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    });
+
+    // Métrica para mensagens muito antigas aguardando consumo
+    const ageOfMessagesMetric =
+      invoiceImportTimeoutQueue.metricApproximateNumberOfMessagesVisible({
+        period: cdk.Duration.minutes(2),
+        statistic: "Maximum",
+        unit: cw.Unit.SECONDS,
+      });
+
+    // Alarme para métrica "ageOfMessagesMetric"
+    ageOfMessagesMetric.createAlarm(this, "AgeOfMessagesInQueue", {
+      alarmName: "AgeOfMessagesInQueue",
+      actionsEnabled: false,
+      evaluationPeriods: 1,
+      threshold: 60,
       comparisonOperator:
         cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
     });
