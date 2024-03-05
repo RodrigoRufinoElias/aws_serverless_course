@@ -135,6 +135,8 @@ export async function handler(
         body: JSON.stringify(convertToOrderResponse(order)),
       };
     } else {
+      console.error("Some product was not found");
+
       // Publica evento no Event Bridge
       const result = await eventBridgeClient
         .putEvents({
