@@ -16,9 +16,8 @@ import { AuthLayersStack } from "../lib/authLayers-stack";
 const app = new cdk.App();
 
 // Env da conta AWS. Varia caso use ambientes diferentes.
-// TODO Remover conta
 const env: cdk.Environment = {
-  account: "098297762675",
+  account: "",
   region: "us-east-1",
 };
 

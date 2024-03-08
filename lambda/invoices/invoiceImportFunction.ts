@@ -97,8 +97,6 @@ async function processRecord(record: S3EventRecord): Promise<void> {
 
     const invoice = JSON.parse(object.Body!.toString("utf-8")) as InvoiceFile;
 
-    console.log("Invoice", invoice);
-
     const createInvoicePromise = invoiceRepository.create({
       pk: `#invoice_${invoice.customerName}`,
       sk: invoice.invoiceNumber,
@@ -157,8 +155,6 @@ async function processRecord(record: S3EventRecord): Promise<void> {
         ],
       })
       .promise();
-
-    console.log(result);
 
     console.log((<Error>error).message);
   }

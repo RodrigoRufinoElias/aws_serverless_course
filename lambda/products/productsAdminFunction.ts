@@ -48,8 +48,6 @@ export async function handler(
   );
 
   if (event.resource === "/products") {
-    console.log("Método POST chamado");
-
     const product = JSON.parse(event.body!) as Product;
     const productCreated = await productRepository.createProduct(product);
 
@@ -60,8 +58,6 @@ export async function handler(
       lambdaRequestId
     );
 
-    console.log(response);
-
     return {
       statusCode: 201,
       body: JSON.stringify(productCreated),
@@ -70,8 +66,6 @@ export async function handler(
     const productId = event.pathParameters!.id as string;
 
     if (method === "PUT") {
-      console.log(`Método PUT /products/${productId}`);
-
       const product = JSON.parse(event.body!) as Product;
 
       try {
@@ -87,8 +81,6 @@ export async function handler(
           lambdaRequestId
         );
 
-        console.log(response);
-
         return {
           statusCode: 200,
           body: JSON.stringify(productUpdated),
@@ -100,8 +92,6 @@ export async function handler(
         };
       }
     } else if (method === "DELETE") {
-      console.log(`Método DELETE /products/${productId}`);
-
       try {
         const product = await productRepository.deleteProduct(productId);
 
@@ -111,8 +101,6 @@ export async function handler(
           userEmail,
           lambdaRequestId
         );
-
-        console.log(response);
 
         return {
           statusCode: 200,

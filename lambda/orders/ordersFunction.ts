@@ -62,7 +62,6 @@ export async function handler(
   // Não precisa verificar o resource pois sempre será chamado por "/orders"
   if (method === "GET") {
     if (event.queryStringParameters) {
-      console.log("GET /orders chamado");
       const email = event.queryStringParameters.email;
       const orderId = event.queryStringParameters.orderId;
 
@@ -102,7 +101,6 @@ export async function handler(
       };
     }
   } else if (method === "POST") {
-    console.log("POST /orders chamado");
     const orderRequest = JSON.parse(event.body!) as OrderRequest;
     const products = await productRepository.getProductByIds(
       orderRequest.productIds
@@ -155,15 +153,12 @@ export async function handler(
         })
         .promise();
 
-      console.log(result);
-
       return {
         statusCode: 404,
         body: "One or more products were not found",
       };
     }
   } else if (method === "DELETE") {
-    console.log("DELETE /orders chamado");
     const email = event.queryStringParameters!.email!;
     const orderId = event.queryStringParameters!.orderId!;
 

@@ -33,8 +33,6 @@ export async function handler(
 
   if (event.resource === "/products") {
     if (method === "GET") {
-      console.log("Método GET chamado");
-
       const products = await productRepository.getAllProducts();
 
       return {
@@ -44,8 +42,6 @@ export async function handler(
     }
   } else if (event.resource === "/products/{id}") {
     const productId = event.pathParameters!.id as string;
-
-    console.log(`Método GET /products/${productId}`);
 
     try {
       const product = await productRepository.getProductById(productId);
