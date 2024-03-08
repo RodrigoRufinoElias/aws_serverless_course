@@ -4,9 +4,10 @@ import {
   Context,
 } from "aws-lambda";
 import { Product, ProductRepository } from "/opt/nodejs/productsLayer";
-import { DynamoDB, Lambda } from "aws-sdk";
+import { CognitoIdentityServiceProvider, DynamoDB, Lambda } from "aws-sdk";
 import * as AWSXRay from "aws-xray-sdk";
 import { ProductEvent, ProductEventType } from "/opt/nodejs/productEventsLayer";
+import { AuthInfoService } from "/opt/nodejs/authUserInfo";
 
 // Usa o XRay para capturar o tempo de execução de tudo oq consome o "aws-sdk"
 AWSXRay.captureAWS(require("aws-sdk"));
@@ -20,8 +21,14 @@ const ddbClient = new DynamoDB.DocumentClient();
 // Inicia client do Lambda
 const lambdaClient = new Lambda();
 
+// Inicia client do CognitoIdentityServiceProvider
+const cognitoIdentityServiceProvider = new CognitoIdentityServiceProvider();
+
 // Inicia Product Repository
 const productRepository = new ProductRepository(ddbClient, productsDdb);
+
+// Inicia Auth Info Service
+const authInfoService = new AuthInfoService(cognitoIdentityServiceProvider);
 
 // Lambda function responsável pela administração de produtos
 export async function handler(
@@ -36,6 +43,10 @@ export async function handler(
     `API Gateway RequestId: ${apiRequestId} - Lambda RequestId: ${lambdaRequestId}`
   );
 
+  const userEmail = await authInfoService.getUserInfo(
+    event.requestContext.authorizer
+  );
+
   if (event.resource === "/products") {
     console.log("Método POST chamado");
 
@@ -45,7 +56,7 @@ export async function handler(
     const response = await sendProductEvent(
       productCreated,
       ProductEventType.CREATED,
-      "teste.create.email@teste.com.br",
+      userEmail,
       lambdaRequestId
     );
 
@@ -72,7 +83,7 @@ export async function handler(
         const response = await sendProductEvent(
           productUpdated,
           ProductEventType.UPDATED,
-          "teste.update.email@teste.com.br",
+          userEmail,
           lambdaRequestId
         );
 
@@ -97,7 +108,7 @@ export async function handler(
         const response = await sendProductEvent(
           product,
           ProductEventType.DELETED,
-          "teste.delete.email@teste.com.br",
+          userEmail,
           lambdaRequestId
         );
 

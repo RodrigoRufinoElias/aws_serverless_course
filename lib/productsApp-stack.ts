@@ -55,6 +55,17 @@ export class ProductsAppStack extends cdk.Stack {
       productEventsLayerArn
     );
 
+    // Auth User Info Layer
+    const authUserInfoLayerArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      "AuthUserInfoLayerVersionArn"
+    );
+    const authUserInfoLayer = lambda.LayerVersion.fromLayerVersionArn(
+      this,
+      "AuthUserInfoLayerVersionArn",
+      authUserInfoLayerArn
+    );
+
     // Lambda para PRODUCTS <-> EVENTS
     // Não precisa ser acessado em outra classe. Por isso é CONST.
     const productEventsHandler = new lambdaNodeJS.NodejsFunction(
@@ -145,7 +156,7 @@ export class ProductsAppStack extends cdk.Stack {
           // Permite que esta lambda acesse o "productEventsHandler"
           PRODUCT_EVENTS_FUNCTION_NAME: productEventsHandler.functionName,
         },
-        layers: [productsLayer, productEventsLayer],
+        layers: [productsLayer, productEventsLayer, authUserInfoLayer],
         // Habilita o log Tracing das funções lambda pelo XRay.
         tracing: lambda.Tracing.ACTIVE,
         // Habilita o Lambda Insight

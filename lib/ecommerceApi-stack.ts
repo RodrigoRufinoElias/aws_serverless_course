@@ -4,6 +4,7 @@ import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cwlogs from "aws-cdk-lib/aws-logs";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as iam from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
 
 interface ECommerceApiStackProps extends cdk.StackProps {
@@ -17,6 +18,7 @@ interface ECommerceApiStackProps extends cdk.StackProps {
 // com as Lambda functions
 export class ECommerceApiStack extends cdk.Stack {
   private productsAuthorizer: apigateway.CognitoUserPoolsAuthorizer;
+  private productsAdminAuthorizer: apigateway.CognitoUserPoolsAuthorizer;
   private customerPool: cognito.UserPool;
   private adminPool: cognito.UserPool;
 
@@ -44,6 +46,19 @@ export class ECommerceApiStack extends cdk.Stack {
     });
 
     this.createCognitoAuth();
+
+    // Police para permitir o acesso da função de produtos ao Admin Pool
+    const adminUserPolicyStatement = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["cognito-idp:AdminGetUser"],
+      resources: [this.adminPool.userPoolArn],
+    });
+
+    // Gambi p/ anexar a policy ao "productsAdminHandler" pois, aqui, o lambda já foi criado
+    const adminUserPolicy = new iam.Policy(this, "AdminGetUserPolicy", {
+      statements: [adminUserPolicyStatement],
+    });
+    adminUserPolicy.attachToRole(<iam.Role>props.productsAdminHandler.role);
 
     this.createProductsService(props, api);
     this.createOrdersService(props, api);
@@ -137,10 +152,47 @@ export class ECommerceApiStack extends cdk.Stack {
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
     });
 
+    // Admin User Pool
+    this.adminPool = new cognito.UserPool(this, "AdminPool", {
+      userPoolName: "AdminPool",
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      selfSignUpEnabled: false,
+      userInvitation: {
+        emailSubject: "Welcome to the ECommerce administrator service!",
+        emailBody: "You username is {username} nd temporary password is {####}",
+      },
+      signInAliases: {
+        username: false,
+        email: true,
+      },
+      standardAttributes: {
+        email: {
+          required: true,
+          mutable: false,
+        },
+      },
+      passwordPolicy: {
+        minLength: 8,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: true,
+        tempPasswordValidity: cdk.Duration.days(3),
+      },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+    });
+
     // Add domínio p/ o Customer User Pool
     this.customerPool.addDomain("CustomerDomain", {
       cognitoDomain: {
         domainPrefix: "rre-course-customer-service",
+      },
+    });
+
+    // Add domínio p/ o Admin User Pool
+    this.adminPool.addDomain("AdminDomain", {
+      cognitoDomain: {
+        domainPrefix: "rre-course-admin-service",
       },
     });
 
@@ -156,6 +208,12 @@ export class ECommerceApiStack extends cdk.Stack {
       scopeDescription: "Customer Mobile Operation",
     });
 
+    // Admin Web Scope (operações que o Admin Pool pode acessar pela web)
+    const adminWebScope = new cognito.ResourceServerScope({
+      scopeName: "web",
+      scopeDescription: "Admin Web Operation",
+    });
+
     // Customer Resource Server (integração com os Customer Scopes)
     // (servidor que permite o acesso aos recursos para os usuários do Customer User Pool)
     const customerResourceServer = this.customerPool.addResourceServer(
@@ -164,6 +222,17 @@ export class ECommerceApiStack extends cdk.Stack {
         identifier: "customer",
         userPoolResourceServerName: "CustomerResourceServer",
         scopes: [customerWebScope, customerMobileScope],
+      }
+    );
+
+    // Admin Resource Server (integração com os Admin Scopes)
+    // (servidor que permite o acesso aos recursos para os usuários do Admin User Pool)
+    const adminResourceServer = this.adminPool.addResourceServer(
+      "AdminResourceServer",
+      {
+        identifier: "admin",
+        userPoolResourceServerName: "AdminResourceServer",
+        scopes: [adminWebScope],
       }
     );
 
@@ -203,6 +272,21 @@ export class ECommerceApiStack extends cdk.Stack {
       },
     });
 
+    // Admin Web Client (Identificação para os usuários no Admin Web Pool)
+    this.adminPool.addClient("admin-web-client", {
+      userPoolClientName: "adminWebClient",
+      authFlows: {
+        userPassword: true,
+      },
+      accessTokenValidity: cdk.Duration.minutes(60),
+      refreshTokenValidity: cdk.Duration.days(7),
+      oAuth: {
+        scopes: [
+          cognito.OAuthScope.resourceServer(adminResourceServer, adminWebScope),
+        ],
+      },
+    });
+
     // Configura o Authorizer para o Customer Pool
     // (permite associar os escopos do Customer Pool com as funcionalidades de Products)
     this.productsAuthorizer = new apigateway.CognitoUserPoolsAuthorizer(
@@ -210,7 +294,18 @@ export class ECommerceApiStack extends cdk.Stack {
       "ProductsAuthorizer",
       {
         authorizerName: "ProductsAuthorizer",
-        cognitoUserPools: [this.customerPool],
+        cognitoUserPools: [this.customerPool, this.adminPool],
+      }
+    );
+
+    // Configura o Authorizer para o Admin Pool
+    // (permite associar os escopos do Admin Pool com as funcionalidades de Products)
+    this.productsAdminAuthorizer = new apigateway.CognitoUserPoolsAuthorizer(
+      this,
+      "ProductsAdminAuthorizer",
+      {
+        authorizerName: "ProductsAdminAuthorizer",
+        cognitoUserPools: [this.adminPool],
       }
     );
   }
@@ -232,16 +327,16 @@ export class ECommerceApiStack extends cdk.Stack {
     const productsFetchWebMobileIntegrationOption = {
       authorizer: this.productsAuthorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
-      // identifier do "customerResourceServer" + scopeName
-      authorizationScope: ["customer/web", "customer/mobile"],
+      // identifier do "ResourceServer" + scopeName
+      authorizationScope: ["customer/web", "customer/mobile", "admin/web"],
     };
 
     // Config para integrar o autorizador "productsAuthorizer" com os escopos web
     const productsFetchWebIntegrationOption = {
       authorizer: this.productsAuthorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
-      // identifier do "customerResourceServer" + scopeName
-      authorizationScope: ["customer/web"],
+      // identifier do "ResourceServer" + scopeName
+      authorizationScope: ["customer/web", "admin/web"],
     };
 
     // Add o endpoint "/products" no API Gateway
@@ -309,13 +404,24 @@ export class ECommerceApiStack extends cdk.Stack {
       requestModels: {
         "application/json": productModel,
       },
+      authorizer: this.productsAdminAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizationScopes: ["admin/web"],
     });
     // Adiciona ao endpoint "/products/{id}" o método PUT
     // e a integração do "productsAdminIntegration"
-    productIdResource.addMethod("PUT", productsAdminIntegration);
+    productIdResource.addMethod("PUT", productsAdminIntegration, {
+      authorizer: this.productsAdminAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizationScopes: ["admin/web"],
+    });
     // Adiciona ao endpoint "/products/{id}" o método DELETE
     // e a integração do "productsAdminIntegration"
-    productIdResource.addMethod("DELETE", productsAdminIntegration);
+    productIdResource.addMethod("DELETE", productsAdminIntegration, {
+      authorizer: this.productsAdminAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizationScopes: ["admin/web"],
+    });
   }
 
   private createOrdersService(
